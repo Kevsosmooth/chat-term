@@ -1,0 +1,8 @@
+bin/
+.cache/
+*.db
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+config.toml
+.data/

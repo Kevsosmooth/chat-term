@@ -1,0 +1,39 @@
+# Copy to ~/.config/chat-term/config.toml (or pass -config <path>).
+
+# Which chat app to use. Available: "whatsapp".
+transport = "whatsapp"
+
+# Bot commands start with this. Not "/" because Claude, Codex, Gemini and OpenCode use it.
+prefix = "."
+
+# Folder whose subfolders .projects lists.
+projects_root = "~"
+
+# tmux server to use. Empty = your normal server (sees Agent Deck sessions too).
+tmux_socket = ""
+
+# Size of sessions chat-term creates (phone friendly). Existing sessions are never resized.
+width = 60
+height = 30
+
+# Longest line sent before cutting with "…" (0 = never cut).
+max_line = 200
+
+# A reply is sent once the screen has been still this long.
+settle_ms = 2000
+poll_ms = 500
+
+# While a tool keeps working, send progress this often (0 = off); stop watching after watch_max_s.
+progress_every_s = 60
+watch_max_s = 900
+
+# Longest single message; longer replies are split.
+chunk_chars = 3500
+
+[whatsapp]
+# Only these numbers can use the bot (country code, digits only).
+# Put the linked account's own number here to use its "Message yourself" chat.
+allowed_numbers = ["15550102000"]
+
+# WhatsApp login data. Keep private: it is a logged-in device.
+store_path = "~/.local/share/chat-term/store.db"
