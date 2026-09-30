@@ -1,5 +1,10 @@
 # chat-term
 
+[![CI](https://github.com/Kevsosmooth/chat-term/actions/workflows/ci.yml/badge.svg)](https://github.com/Kevsosmooth/chat-term/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Kevsosmooth/chat-term)](https://github.com/Kevsosmooth/chat-term/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Kevsosmooth/chat-term.svg)](https://pkg.go.dev/github.com/Kevsosmooth/chat-term)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Use your terminal from a chat app, as if you were SSH'd in.
 
 chat-term links to your chat account and connects the conversation to tmux.
@@ -16,7 +21,7 @@ Telegram, Discord, Signal and others can be added
 New here? Read the [guide](docs/GUIDE.md): it shows how to start Claude on a
 project, answer its prompts and check on long jobs, all from your phone.
 
-Status: **working prototype**. It uses about 15-20 MB of RAM and ships as a
+Status: **early release (v0.1)**. Expect rough edges. It uses about 15-20 MB of RAM and ships as a
 single static binary.
 
 ```
@@ -43,15 +48,29 @@ chat-term: 1. myapp (claude) *active*   2. build (bash)
 ## Requirements
 
 - Linux or macOS with `tmux` 3.0 or newer
-- Go 1.26 or newer to build it
+- Go 1.26 or newer, only if you build from source
 - The CLI tools you want to drive, already installed and logged in
 
-## Build
+## Install
 
-```sh
-git clone https://github.com/Kevsosmooth/chat-term.git && cd chat-term
-go build -o bin/chat-term ./cmd/chat-term
-```
+Pick one:
+
+- **Download a binary.** Grab the archive for your system (Linux or macOS,
+  Intel or ARM) from the [releases page](https://github.com/Kevsosmooth/chat-term/releases),
+  unpack it and put `chat-term` somewhere on your `PATH`.
+- **With Go:**
+  ```sh
+  go install github.com/Kevsosmooth/chat-term/cmd/chat-term@latest
+  ```
+- **From source:**
+  ```sh
+  git clone https://github.com/Kevsosmooth/chat-term.git && cd chat-term
+  go build -o bin/chat-term ./cmd/chat-term
+  ```
+
+Check it worked with `chat-term version`. The examples below use
+`./bin/chat-term` from a source build; use plain `chat-term` if you installed
+it another way.
 
 ## Try it locally first
 
@@ -241,6 +260,11 @@ go test ./...
 
 The bot tests run a real tmux server on a private socket and never touch your
 sessions.
+
+## Contributing and security
+
+New transports, fixes and docs are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+Please report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## Roadmap
 
