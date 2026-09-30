@@ -13,6 +13,9 @@ WhatsApp is the first transport. The chat side is a small interface, so
 Telegram, Discord, Signal and others can be added
 (see [Adding a transport](#adding-a-transport)).
 
+New here? Read the [guide](docs/GUIDE.md): it shows how to start Claude on a
+project, answer its prompts and check on long jobs, all from your phone.
+
 Status: **working prototype**. It uses about 15-20 MB of RAM and ships as a
 single static binary.
 
@@ -46,7 +49,7 @@ chat-term: 1. myapp (claude) *active*   2. build (bash)
 ## Build
 
 ```sh
-git clone <repo-url> chat-term && cd chat-term
+git clone https://github.com/Kevsosmooth/chat-term.git && cd chat-term
 go build -o bin/chat-term ./cmd/chat-term
 ```
 
@@ -93,6 +96,9 @@ ls
      answers there and ignores all your other chats. Your own number must be in
      `allowed_numbers`.
 
+Run one chat-term per account: two bridges on the same number would read each
+other's replies in "Message yourself" as commands.
+
 Pairing is saved, so later runs connect straight away. To keep it running, use
 a systemd user service, or start it in its own tmux window.
 
@@ -101,28 +107,62 @@ a systemd user service, or start it in its own tmux window.
 - Messages that don't start with `.` are typed into the active session and
   followed by Enter. Multi-line messages are pasted as one block.
 - chat-term then watches the screen. Once it has been still for `settle_ms`, you
-  get the new part as a monospace block. Long-running work sends a progress
-  update every `progress_every_s`.
+  get the new part as a monospace block. Lines you were already sent are
+  skipped, even when a tool redraws the screen or a menu closes. A ticking
+  clock or cpu meter in a status bar does not count as activity, so replies
+  are not held back by it. Long-running work sends a progress update every
+  `progress_every_s`.
+- While an AI CLI shows that it is working, the reply waits even if the screen
+  is still. The busy signals are per tool (Claude Code, Codex, Gemini CLI,
+  OpenCode, Copilot, Pi and others), keyed by the program running in the
+  pane. A program that is slow to draw its first screen is waited for too.
+- The tool's own status bar comes along with each reply, so whatever it shows
+  (model, effort, mode, context left, usage limits) is visible from the chat.
 - Commands start with `.` because the AI CLIs already use `/`. To type text
   that starts with a dot, begin it with `..`.
-- Each chat has its own active session, and the sessions themselves are
-  ordinary tmux sessions. You can attach to the same session from a real
+- Each chat starts in `projects_root` and has its own active session. The
+  sessions themselves are ordinary tmux sessions. You can attach to the same session from a real
   terminal (`tmux attach -t myapp`) and switch between phone and keyboard.
 
 ## Commands
 
-Send `.help` for the list, or `.help <command>` for details.
+Send `.help` for a short start-here list, `.help all` for every command, or
+`.help <command>` for details. `.guide` sends a cheat sheet picture you can
+save on your phone. For step-by-step walkthroughs, see the
+[guide](docs/GUIDE.md); for a printable copy, the
+[cheat sheet (PDF)](docs/cheatsheet.pdf).
 
 | Group | Commands |
 |---|---|
-| Directories | `.pwd` `.ls [path\|n] [-a]` `.tree [path\|n] [depth]` `.cd <path\|n>` `.cat <file\|n> [from-to]` `.projects` `.open <n\|name\|path> [cmd]` |
+| Directories | `.pwd` `.ls [path\|n] [-a]` `.tree [path\|n] [depth]` `.cd <path\|n>` `.cat <file\|n> [from-to\|from-]` `.projects` `.open <n\|folder> [cmd]` |
 | Sessions | `.ss` `.s <n\|name>` `.new [name] [dir] [cmd]` `.back` `.detach` `.kill [n\|name]` + `.yes` `.rename <name>` |
 | Keys | `.enter .esc .tab .stab .up .down .left .right .bs .space`, `.c` (Ctrl-C), `.d` (Ctrl-D), `.z` (Ctrl-Z), `.l` (Ctrl-L), each with an optional repeat count (`.down 3`), `.key <tmux keys>`, `.raw <text>` |
 | View | `.screen` `.more [lines]` |
-| Other | `.help [command]` `.status` |
+| Other | `.help [all\|command]` `.guide` `.status` |
 
 Numbers refer to the last list shown: `.ls` then `.cat 3`, `.projects` then
-`.open 2`, `.ss` then `.s 1`.
+`.open 2`, `.ss` then `.s 1`. `.open` with a name works like `cd`: the folder is
+relative to where you are, and if it doesn't exist you are told where you are
+and how to look around.
+
+### Forgiving input
+
+Phones and thumbs make typos, so chat-term is lenient:
+
+- Extra spaces and case don't matter: `.   Open  myapp` works, and so does a
+  space after the dot (`. open`).
+- A mistyped command gets a suggestion: `.opne` answers "Did you mean .open?".
+- Folder names fall back to a case-insensitive match (`Src` finds `src`), and
+  paths may contain spaces (`.cat my notes/todo.txt`) or be quoted.
+- A period the keyboard adds is ignored (`.Pwd.`, `Ls.`), and a bare `yes`
+  confirms a pending `.kill`.
+- In a plain shell, phone autocorrect is undone before typing: curly quotes
+  become straight, an em or en dash becomes `--`, `…` becomes `...`, and a
+  capitalized command (`Mkdir`) is lowercased when only the lowercase one
+  exists. A dash is only turned back into `--` where it starts a word, and
+  case is left alone in multi-line messages. AI tools get your text unchanged.
+- With no active session, typing text explains what to do next instead of
+  failing silently.
 
 ### Approval and auto modes
 
@@ -156,11 +196,14 @@ internal/term/      tmux wrapper
 internal/screen/    screen cleanup, diffing, chunking
 internal/wa/        WhatsApp transport (whatsmeow)
 internal/console/   stdin/stdout transport for local testing
+internal/guide/     the cheat sheet picture .guide sends (generated; see guide.go)
 ```
 
 ## Adding a transport
 
-A transport only moves text. It implements one interface from
+A transport only moves text. (It may also implement the optional
+`chat.ImageSender` to send the `.guide` picture; without it, `.guide` sends
+text.) It implements one interface from
 `internal/chat`:
 
 ```go
@@ -177,6 +220,8 @@ Its `Run` must:
 2. **Keep order.** Call `handle` for any one chat in message order, one message
    at a time (`handle` may block while it watches the screen).
 3. **No echoes.** Never pass the bot's own replies back to `handle`.
+   Also skip messages sent before the transport started and edits of old
+   messages, so nothing is re-run by accident.
 4. Give `handle` a stable `chatID` for each conversation, and a `reply` that
    sends text back to that conversation. Replies arrive as Markdown-style text
    (`*bold*`, fenced code blocks) of at most `chunk_chars` characters.
@@ -204,3 +249,7 @@ See [ROADMAP.md](ROADMAP.md).
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The per-tool busy signals in `internal/screen/busy.go` are adapted from
+[Agent Deck](https://github.com/asheshgoplani/agent-deck) (MIT, Copyright (c)
+2025 Ashesh Goplani).

@@ -23,3 +23,10 @@ type Handler func(chatID, text string, reply Reply)
 type Transport interface {
 	Run(ctx context.Context, handle Handler) error
 }
+
+// ImageSender is optional. A transport that can send pictures implements it,
+// and the bot uses it for the .guide cheat sheet; otherwise it sends text.
+// It is only called while Run is running.
+type ImageSender interface {
+	SendImage(chatID string, png []byte, caption string) error
+}

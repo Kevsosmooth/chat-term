@@ -88,12 +88,16 @@ func (h *harness) drain() {
 func TestEndToEnd(t *testing.T) {
 	h := newHarness(t)
 
+	h.expect("echo hi", "Welcome to chat-term", ".help all")
 	h.expect("echo hi", "No active session")
-	h.expect(".help", "*Directories*", ".open <n|name|path> [cmd] - new session", ".esc", ".help <command>")
+	h.expect(".help", "start here", ".open 2 claude", ".guide")
+	h.expect(".help all", "*Directories*", ".open <n|folder> [cmd] - new session", ".esc", ".help <command>")
 	h.expect(".help open", ".open 3 claude", "Short form: .o")
 	h.expect(".nope", "Unknown command .nope")
+	h.expect(".opne 1", "Did you mean .open?")
+	h.expect(". open nope", "No folder \"nope\"", ".projects - list your projects")
 
-	h.expect(".projects", "1 alpha", "2 beta")
+	h.expect(".   projects", "1 alpha", "2 beta")
 	h.expect(".open 1", "Started alpha", "[alpha · ")
 	h.drain()
 	h.expect(".pwd", "/alpha")
@@ -115,7 +119,7 @@ func TestEndToEnd(t *testing.T) {
 	h.expect(".s alp", "[alpha · ")
 	h.expect(".back", "[side · ")
 
-	h.expect("sleep 30", "· sleep]", "# sleep 30")
+	h.expect("echo waiting; sleep 30", "· sleep]", "waiting")
 	h.expect(".enter", "no change")
 	h.expect(".c", "^C")
 	h.drain()
@@ -127,6 +131,51 @@ func TestEndToEnd(t *testing.T) {
 	h.expect(".s 99", "no session number 99")
 	h.expect(".detach", "Not attached")
 	h.expect(".status", "memory", "tmux server: chat-term-test-")
+}
+
+func TestPhoneInput(t *testing.T) {
+	h := newHarness(t)
+	if err := os.MkdirAll(filepath.Join(h.b.dir, "alpha", "my notes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.b.dir, "alpha", "my notes", "a b.txt"), []byte("spaced file\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h.expect(".open alpha", "Started alpha")
+	h.drain()
+	h.expect(".?", "start here")
+	h.expect(".Pwd.", "/alpha")
+	h.expect(".cat my notes/a b.txt", "spaced file")
+	h.expect(`.cat "my notes/a b.txt" 1-`, "spaced file")
+	h.expect(".ls my notes", "a b.txt")
+
+	// Output from a command still running when the next message arrives is kept.
+	h.b.Handle("echo one-$((1)); sleep 0.25; echo done-$((2))")
+	time.Sleep(150 * time.Millisecond)
+	h.expect("echo two-$((3))", "one-1", "done-2", "two-3")
+	h.drain()
+
+	// Coming back to an earlier screen is a change, not "(no change)".
+	h.expect("echo same-$((4))", "same-4")
+	h.drain()
+	h.b.Handle(".l") // clears the screen
+	h.drain()
+	h.expect("echo same-$((4))", "same-4")
+	h.drain()
+
+	// A program that is slow to draw its first screen is waited for.
+	h.expect("sleep 1; echo ready-$((5))", "ready-5")
+	h.drain()
+
+	h.expect(".new My Project", "Started My-Project")
+	h.drain()
+	h.expect(".new my notes", "Started my-notes", "/alpha/my notes")
+	h.drain()
+	h.expect(".s alpha", "[alpha · ")
+	h.expect(". ./missing.sh", "missing.sh")
+	h.drain()
+	h.expect(".kill", ".yes")
+	h.expect("Yes.", "Ended alpha")
 }
 
 func TestCdRefusesWhileToolRuns(t *testing.T) {
@@ -147,6 +196,9 @@ func TestParse(t *testing.T) {
 			t.Errorf("splitFirst(%q) = %q, %q", tc.in, f, r)
 		}
 	}
+	if sanitizeName("café ☕") != "cafe" {
+		t.Errorf("sanitizeName = %q", sanitizeName("café ☕"))
+	}
 	if sanitizeName("my proj.v2!") != "my-proj-v2" {
 		t.Errorf("sanitizeName = %q", sanitizeName("my proj.v2!"))
 	}
@@ -158,5 +210,34 @@ func TestShortPath(t *testing.T) {
 	}
 	if got := shortPath("/volume1/playground"); got != "/volume1/playground" {
 		t.Errorf("shortPath = %q", got)
+	}
+}
+
+func TestFixShellLine(t *testing.T) {
+	for in, want := range map[string]string{
+		"Mkdir test-wa-env":            "mkdir test-wa-env",
+		"  Cd ..":                      "  cd ..",
+		"Echo “hi” ‘x’":                `echo "hi" 'x'`,
+		"teamclaude run — —permission": "teamclaude run -- --permission",
+		"TC_ACCT=a teamclaude run":     "TC_ACCT=a teamclaude run",
+		"Hello there":                  "Hello there",
+		"ls\nMkdir a":                  "ls\nMkdir a",
+		"Kill stale\nsessions":         "Kill stale\nsessions",
+		"sed 's/—/-/g' f":              "sed 's/—/-/g' f",
+		"Ls.":                          "ls",
+		"cd ..":                        "cd ..",
+		"Help":                         "help",
+	} {
+		if got := fixShellLine(in); got != want {
+			t.Errorf("fixShellLine(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestSuggest(t *testing.T) {
+	for in, want := range map[string]string{"opne": "open", "proj": "projects", "sttus": "status", "xyzzy": ""} {
+		if got := suggest(in); got != want {
+			t.Errorf("suggest(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

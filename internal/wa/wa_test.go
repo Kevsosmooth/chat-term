@@ -3,6 +3,8 @@ package wa
 import (
 	"fmt"
 	"testing"
+
+	"go.mau.fi/whatsmeow/proto/waE2E"
 )
 
 func TestIDSetEvictsOldest(t *testing.T) {
@@ -17,5 +19,14 @@ func TestIDSetEvictsOldest(t *testing.T) {
 		if !s.has(id) {
 			t.Errorf("%s missing", id)
 		}
+	}
+}
+
+func TestIsMediaIgnoresProtocolMessages(t *testing.T) {
+	if isMedia(&waE2E.Message{ProtocolMessage: &waE2E.ProtocolMessage{}}) {
+		t.Error("protocol message counted as media")
+	}
+	if !isMedia(&waE2E.Message{ImageMessage: &waE2E.ImageMessage{}}) {
+		t.Error("image not counted as media")
 	}
 }

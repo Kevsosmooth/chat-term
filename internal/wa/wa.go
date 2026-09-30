@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
@@ -25,6 +27,10 @@ import (
 	"chat-term/internal/config"
 )
 
+// lateAfter drops messages delivered this long after they were sent, as happens
+// after a network drop: a "1" meant for an old prompt must not answer a new one.
+const lateAfter = 2 * time.Minute
+
 type incoming struct {
 	chat types.JID
 	text string
@@ -35,6 +41,10 @@ type incoming struct {
 type Transport struct {
 	cfg       config.WhatsApp
 	pairPhone string
+
+	// Set by Run before any message is handled.
+	cli  *whatsmeow.Client
+	sent *idSet
 }
 
 // New builds the transport. If pairPhone is set, first-time pairing uses an
@@ -74,7 +84,10 @@ func (t *Transport) Run(ctx context.Context, handle chat.Handler) error {
 	// Messages are handled in order on one goroutine so the event loop never blocks.
 	queue := make(chan incoming, 64)
 	sent := newIDSet(500)
+	t.cli, t.sent = cli, sent
+	started := time.Now().Add(-5 * time.Second) // small allowance for clock skew
 	loggedOut := make(chan struct{}, 1)
+	var lastLateNote atomic.Int64 // unix seconds; one note per burst of late messages
 	cli.AddEventHandler(func(evt any) {
 		switch v := evt.(type) {
 		case *events.Message:
@@ -90,15 +103,37 @@ func (t *Transport) Run(ctx context.Context, handle chat.Handler) error {
 			} else if !senderAllowed(ctx, cli, v.Info.MessageSource, allowed) {
 				return
 			}
+			// Never replay commands that were sent while the bridge was down,
+			// and never re-run a command because it was edited.
+			if v.IsEdit || v.Info.Timestamp.Before(started) {
+				return
+			}
+			chat := canonicalChat(ctx, cli, v.Info.Chat)
+			if age := time.Since(v.Info.Timestamp); age > lateAfter {
+				log.Printf("skipped a message delivered %s late", age.Round(time.Second))
+				if now := time.Now().Unix(); now-lastLateNote.Load() > 60 {
+					lastLateNote.Store(now)
+					select {
+					case queue <- incoming{chat: chat, text: "\x00late"}:
+					default:
+					}
+				}
+				return
+			}
 			text := v.Message.GetConversation()
 			if text == "" {
 				text = v.Message.GetExtendedTextMessage().GetText()
 			}
 			if text == "" {
+				// Linking and syncing send hidden protocol messages; only answer
+				// content a person actually sent.
+				if !isMedia(v.Message) {
+					return
+				}
 				text = "\x00unsupported"
 			}
 			select {
-			case queue <- incoming{chat: v.Info.Chat, text: text}:
+			case queue <- incoming{chat: chat, text: text}:
 			default:
 				log.Printf("message queue full; dropped a message")
 			}
@@ -131,15 +166,16 @@ func (t *Transport) Run(ctx context.Context, handle chat.Handler) error {
 		case m := <-queue:
 			chat := m.chat
 			reply := func(text string) {
-				msg := &waE2E.Message{Conversation: proto.String(text)}
-				id := cli.GenerateMessageID()
-				sent.add(id) // before sending, so the echo in self-chat is never read back
-				if _, err := cli.SendMessage(context.Background(), chat, msg, whatsmeow.SendRequestExtra{ID: id}); err != nil {
+				if err := t.send(chat, &waE2E.Message{Conversation: proto.String(text)}); err != nil {
 					log.Printf("send failed: %v", err)
 				}
 			}
-			if m.text == "\x00unsupported" {
+			switch m.text {
+			case "\x00unsupported":
 				reply("Only text messages are supported so far.")
+				continue
+			case "\x00late":
+				reply("Skipped messages that arrived more than 2 minutes late (the connection dropped). Send them again if you still want them.")
 				continue
 			}
 			handle(chat.String(), m.text, reply)
@@ -147,11 +183,47 @@ func (t *Transport) Run(ctx context.Context, handle chat.Handler) error {
 	}
 }
 
+// send delivers msg to chat, retrying once.
+func (t *Transport) send(chat types.JID, msg *waE2E.Message) error {
+	id := t.cli.GenerateMessageID()
+	t.sent.add(id) // before sending, so the echo in self-chat is never read back
+	_, err := t.cli.SendMessage(context.Background(), chat, msg, whatsmeow.SendRequestExtra{ID: id})
+	if err != nil {
+		// Usually a reconnect in progress; one retry covers it.
+		log.Printf("send failed, retrying: %v", err)
+		time.Sleep(3 * time.Second)
+		_, err = t.cli.SendMessage(context.Background(), chat, msg, whatsmeow.SendRequestExtra{ID: id})
+	}
+	return err
+}
+
+// isMedia reports content a person sent that the bridge can't read yet.
+func isMedia(m *waE2E.Message) bool {
+	return m.GetImageMessage() != nil || m.GetVideoMessage() != nil ||
+		m.GetAudioMessage() != nil || m.GetDocumentMessage() != nil ||
+		m.GetDocumentWithCaptionMessage() != nil || m.GetStickerMessage() != nil ||
+		m.GetContactMessage() != nil || m.GetLocationMessage() != nil
+}
+
 func ownNumber(cli *whatsmeow.Client) string {
 	if cli.Store.ID == nil {
 		return ""
 	}
 	return cli.Store.ID.User
+}
+
+// canonicalChat keys a chat by phone number. WhatsApp may address the same
+// chat by number or by privacy ID (LID); both must reach the same session state.
+func canonicalChat(ctx context.Context, cli *whatsmeow.Client, chat types.JID) types.JID {
+	if isSelfChat(cli, chat) {
+		return types.NewJID(ownNumber(cli), types.DefaultUserServer)
+	}
+	if chat.Server == types.HiddenUserServer {
+		if pn, err := cli.Store.LIDs.GetPNForLID(ctx, chat); err == nil && !pn.IsEmpty() {
+			return pn.ToNonAD()
+		}
+	}
+	return chat
 }
 
 // isSelfChat reports whether chat is this account's "Message yourself" chat,

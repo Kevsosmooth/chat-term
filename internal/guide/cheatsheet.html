@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>chat-term cheat sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 720px; font: 15px/1.4 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111827; background: #ffffff; }
+  header { background: #111827; color: #ffffff; padding: 18px 24px; }
+  h1 { font-size: 24px; }
+  header p { margin-top: 4px; color: #d1d5db; }
+  main { padding: 16px 24px 24px; }
+  h2 { background: #e5e7eb; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 10px; margin: 16px 0 6px; }
+  ol { margin: 8px 0 0 22px; }
+  li { margin: 4px 0; }
+  .start { background: #ecfdf5; border-left: 4px solid #047857; padding: 10px 14px; }
+  .start h2 { background: none; padding: 0; margin: 0; color: #047857; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 3px 10px; vertical-align: top; border-bottom: 1px solid #f3f4f6; }
+  td:first-child { width: 42%; }
+  code { font: 600 14px/1.4 ui-monospace, Menlo, Consolas, monospace; background: #f3f4f6; padding: 1px 5px; }
+  footer { padding: 0 24px 20px; color: #374151; }
+  footer p { margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>chat-term cheat sheet</h1>
+  <p>A message that starts with <b>.</b> is a command. Anything else is typed into your terminal, then Enter.</p>
+</header>
+<main>
+  <div class="start">
+    <h2>Start here</h2>
+    <ol>
+      <li>.projects - list your project folders</li>
+      <li>.open 2 claude - open folder 2 and start claude (or codex, gemini, any command)</li>
+      <li>Type your request as a normal message.</li>
+      <li>A menu? Send its number, or use .up .down .enter</li>
+      <li>.screen - show the whole screen. .c - stop (Ctrl-C)</li>
+      <li>.ss - your sessions. .s 2 - switch to one</li>
+    </ol>
+  </div>
+  <h2>Directories</h2>
+  <table>
+    <tr><td><code>.pwd</code></td><td>show the current folder</td></tr>
+    <tr><td><code>.ls [path|n] [-a]</code></td><td>list files, numbered</td></tr>
+    <tr><td><code>.tree [path|n] [depth]</code></td><td>folder tree (default depth 2)</td></tr>
+    <tr><td><code>.cd &lt;path|n&gt;</code></td><td>change folder</td></tr>
+    <tr><td><code>.cat &lt;file|n&gt; [from-to]</code></td><td>show a file</td></tr>
+    <tr><td><code>.projects</code></td><td>list project folders, numbered</td></tr>
+    <tr><td><code>.open &lt;n|folder&gt; [cmd]</code></td><td>new session in a folder</td></tr>
+  </table>
+  <h2>Sessions</h2>
+  <table>
+    <tr><td><code>.ss</code></td><td>list tmux sessions, numbered</td></tr>
+    <tr><td><code>.s &lt;n|name&gt;</code></td><td>switch to a session</td></tr>
+    <tr><td><code>.new [name] [dir] [cmd]</code></td><td>start a new shell session</td></tr>
+    <tr><td><code>.back</code></td><td>switch to the previous session</td></tr>
+    <tr><td><code>.detach</code></td><td>stop viewing; session keeps running</td></tr>
+    <tr><td><code>.kill [n|name]</code></td><td>end a session (asks first)</td></tr>
+    <tr><td><code>.yes</code></td><td>confirm a pending kill</td></tr>
+    <tr><td><code>.rename &lt;new-name&gt;</code></td><td>rename the active session</td></tr>
+  </table>
+  <h2>Keys</h2>
+  <table>
+    <tr><td><code>.enter</code></td><td>press Enter</td></tr>
+    <tr><td><code>.esc</code></td><td>press Escape (interrupts Claude/Codex)</td></tr>
+    <tr><td><code>.tab</code></td><td>press Tab</td></tr>
+    <tr><td><code>.stab</code></td><td>press Shift&#43;Tab (Claude: cycle modes)</td></tr>
+    <tr><td><code>.up</code></td><td>arrow up</td></tr>
+    <tr><td><code>.down</code></td><td>arrow down</td></tr>
+    <tr><td><code>.left</code></td><td>arrow left</td></tr>
+    <tr><td><code>.right</code></td><td>arrow right</td></tr>
+    <tr><td><code>.bs</code></td><td>backspace</td></tr>
+    <tr><td><code>.space</code></td><td>press Space</td></tr>
+    <tr><td><code>.c</code></td><td>Ctrl-C (stop a program)</td></tr>
+    <tr><td><code>.d</code></td><td>Ctrl-D (end input / exit a shell)</td></tr>
+    <tr><td><code>.z</code></td><td>Ctrl-Z (suspend)</td></tr>
+    <tr><td><code>.l</code></td><td>Ctrl-L (clear screen)</td></tr>
+    <tr><td><code>.key &lt;keys...&gt;</code></td><td>any tmux key names</td></tr>
+    <tr><td><code>.raw &lt;text&gt;</code></td><td>type text without pressing Enter</td></tr>
+  </table>
+  <h2>View</h2>
+  <table>
+    <tr><td><code>.screen</code></td><td>show the whole current screen</td></tr>
+    <tr><td><code>.more [lines]</code></td><td>screen plus scrollback (default 60)</td></tr>
+  </table>
+  <h2>Other</h2>
+  <table>
+    <tr><td><code>.help [all|command]</code></td><td>how to get started (add all for every command)</td></tr>
+    <tr><td><code>.guide</code></td><td>cheat sheet picture to keep on your phone</td></tr>
+    <tr><td><code>.status</code></td><td>bridge uptime, memory, active session</td></tr>
+  </table>
+</main>
+<footer>
+  <p>Numbers refer to the last list shown: <code>.ls</code> then <code>.cat 3</code>.</p>
+  <p>Key commands take a repeat count: <code>.down 3</code>. To type text that starts with ., begin it with <code>..</code>.</p>
+  <p><code>.help &lt;command&gt;</code> explains one command with examples.</p>
+</footer>
+</body>
+</html>

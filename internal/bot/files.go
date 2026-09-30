@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"chat-term/internal/config"
 )
@@ -19,6 +20,8 @@ const (
 	maxCatBytes    = 5 << 20
 	catDefault     = 150
 	catMaxRange    = 400
+	catMaxBytes    = 20000 // about six chat messages per .cat
+	catLineDefault = 500   // line cap when max_line is 0
 )
 
 var shells = map[string]bool{
@@ -41,6 +44,9 @@ func (b *Bot) cwd() string {
 // resolvePath accepts a number from the last .ls, ~, or a path relative to cwd.
 func (b *Bot) resolvePath(arg string) (string, error) {
 	if n, err := strconv.Atoi(arg); err == nil {
+		if len(b.lastFiles) == 0 {
+			return "", fmt.Errorf("no numbered list yet; %sls shows one", b.cfg.Prefix)
+		}
 		if n < 1 || n > len(b.lastFiles) {
 			return "", fmt.Errorf("no item %d in the last %sls list", n, b.cfg.Prefix)
 		}
@@ -53,13 +59,42 @@ func (b *Bot) resolvePath(arg string) (string, error) {
 	return filepath.Clean(p), nil
 }
 
+// splitPath separates a path that may contain spaces from the words after it.
+// Quotes group a path ("my dir" 3); otherwise the longest run of leading words
+// that exists wins, falling back to the first word.
+func (b *Bot) splitPath(arg string) (string, string) {
+	arg = strings.TrimSpace(arg)
+	for _, q := range [][2]string{{`"`, `"`}, {"'", "'"}, {"“", "”"}, {"‘", "’"}} {
+		if rest, ok := strings.CutPrefix(arg, q[0]); ok {
+			if p, after, ok := strings.Cut(rest, q[1]); ok {
+				return p, strings.TrimSpace(after)
+			}
+		}
+	}
+	words := strings.Fields(arg)
+	for n := len(words); n > 1; n-- {
+		p := strings.Join(words[:n], " ")
+		if full, err := b.resolvePath(p); err == nil {
+			if _, err := os.Stat(full); err == nil {
+				return p, strings.Join(words[n:], " ")
+			}
+		}
+	}
+	return splitFirst(arg)
+}
+
 func (b *Bot) resolveDir(arg string) (string, error) {
 	p, err := b.resolvePath(arg)
 	if err != nil {
 		return "", err
 	}
 	if st, err := os.Stat(p); err != nil {
-		return "", fmt.Errorf("%s: no such folder", displayPath(p))
+		if m := matchFold(filepath.Dir(p), filepath.Base(p)); m != "" {
+			return m, nil // "Src" when the folder is "src"
+		}
+		pp := b.cfg.Prefix
+		return "", fmt.Errorf("No folder %q in %s.\n%sls - see what's here\n%scd <folder> - move somewhere else\n%sprojects - list your projects",
+			filepath.Base(p), displayPath(filepath.Dir(p)), pp, pp, pp)
 	} else if !st.IsDir() {
 		return "", fmt.Errorf("%s is a file, not a folder", displayPath(p))
 	}
@@ -76,14 +111,15 @@ func (b *Bot) cmdPwd(string) {
 
 func (b *Bot) cmdLs(arg string) {
 	all := false
-	var target string
+	var rest []string
 	for _, f := range strings.Fields(arg) {
 		if f == "-a" {
 			all = true
 		} else {
-			target = f
+			rest = append(rest, f)
 		}
 	}
+	target, _ := b.splitPath(strings.Join(rest, " "))
 	dir := b.cwd()
 	if target != "" {
 		d, err := b.resolveDir(target)
@@ -130,18 +166,18 @@ func (b *Bot) cmdLs(arg string) {
 }
 
 func (b *Bot) cmdTree(arg string) {
-	fields := strings.Fields(arg)
+	target, depthArg := b.splitPath(arg)
 	dir, depth := b.cwd(), 2
-	if len(fields) > 0 {
-		d, err := b.resolveDir(fields[0])
+	if target != "" {
+		d, err := b.resolveDir(target)
 		if err != nil {
 			b.say("%v", err)
 			return
 		}
 		dir = d
 	}
-	if len(fields) > 1 {
-		n, err := strconv.Atoi(fields[1])
+	if depthArg != "" {
+		n, err := strconv.Atoi(depthArg)
 		if err != nil || n < 1 || n > 6 {
 			b.say("Depth must be 1-6. Example: %stree . 3", b.cfg.Prefix)
 			return
@@ -214,7 +250,7 @@ func (b *Bot) cmdCd(arg string) {
 			s.Command, name, b.cfg.Prefix, displayPath(dir))
 		return
 	}
-	b.typeLine("cd -- " + shellQuote(dir))
+	b.typeExact(name, "cd -- "+shellQuote(dir)) // autocorrect undo would break a ’ in the name
 }
 
 func shellQuote(s string) string {
@@ -222,7 +258,7 @@ func shellQuote(s string) string {
 }
 
 func (b *Bot) cmdCat(arg string) {
-	fileArg, rangeArg := splitFirst(arg)
+	fileArg, rangeArg := b.splitPath(arg)
 	if fileArg == "" {
 		b.say("Which file? %scat <file|n> [from-to]", b.cfg.Prefix)
 		return
@@ -258,9 +294,12 @@ func (b *Bot) cmdCat(arg string) {
 	if rangeArg != "" {
 		a, z, ok := strings.Cut(rangeArg, "-")
 		f, err1 := strconv.Atoi(a)
-		t, err2 := strconv.Atoi(z)
+		t, err2 := len(all), error(nil)
+		if z != "" {
+			t, err2 = strconv.Atoi(z)
+		}
 		if !ok || err1 != nil || err2 != nil || f < 1 || t < f {
-			b.say("Range looks like 40-90.")
+			b.say("Range looks like 40-90, or 40- for the rest.")
 			return
 		}
 		from, to = f, min(t, len(all), f+catMaxRange-1)
@@ -269,9 +308,22 @@ func (b *Bot) cmdCat(arg string) {
 		b.say("%s has only %d lines.", displayPath(p), len(all))
 		return
 	}
+	maxLen := b.cfg.MaxLine
+	if maxLen <= 0 {
+		maxLen = catLineDefault
+	}
 	lines := make([]string, 0, to-from+1)
+	size := 0
 	for i := from; i <= to; i++ {
-		lines = append(lines, fmt.Sprintf("%4d %s", i, all[i-1]))
+		line := all[i-1]
+		if utf8.RuneCountInString(line) > maxLen {
+			line = string([]rune(line)[:maxLen-1]) + "…"
+		}
+		if size += len(line) + 6; size > catMaxBytes && i > from {
+			to = i - 1 // the header tells where to continue
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%4d %s", i, line))
 	}
 	header := fmt.Sprintf("%s · lines %d-%d of %d", displayPath(p), from, to, len(all))
 	b.sendBlock(header, lines)
@@ -309,41 +361,54 @@ func (b *Bot) cmdProjects(string) {
 }
 
 func (b *Bot) cmdOpen(arg string) {
-	target, cmd := splitFirst(arg)
+	target, cmd := b.splitPath(arg)
 	if target == "" {
 		b.say("Open what? %sopen <n|name|path> [tool]. %sprojects lists projects.", b.cfg.Prefix, b.cfg.Prefix)
 		return
 	}
 	var dir string
-	if looksLikePath(target) {
+	if n, convErr := strconv.Atoi(target); convErr == nil {
+		// A number is from the .projects list, which says ".open <n>".
+		list := b.lastProjects
+		if len(list) == 0 {
+			dirs, err := b.projectDirs()
+			if err != nil {
+				b.say("Could not read projects_root: %v", err)
+				return
+			}
+			list = dirs
+		}
+		if n < 1 || n > len(list) {
+			b.say("No project number %d; %sprojects lists them.", n, b.cfg.Prefix)
+			return
+		}
+		dir = filepath.Join(b.cfg.ProjectsRoot, list[n-1])
+	} else {
+		// Anything else is a folder, relative to where you are, like a terminal.
 		d, err := b.resolveDir(target)
 		if err != nil {
 			b.say("%v", err)
 			return
 		}
 		dir = d
-	} else {
-		dirs, err := b.projectDirs()
-		if err != nil {
-			b.say("Could not read projects_root: %v", err)
-			return
-		}
-		var name string
-		if n, convErr := strconv.Atoi(target); convErr == nil {
-			list := b.lastProjects
-			if len(list) == 0 {
-				list = dirs
-			}
-			if n < 1 || n > len(list) {
-				b.say("No project number %d; %sprojects lists them.", n, b.cfg.Prefix)
-				return
-			}
-			name = list[n-1]
-		} else if name, err = matchName(target, dirs, "project"); err != nil {
-			b.say("%v", err)
-			return
-		}
-		dir = filepath.Join(b.cfg.ProjectsRoot, name)
 	}
 	b.startSession(b.uniqueName(sanitizeName(filepath.Base(dir))), dir, cmd)
+}
+
+// matchFold finds the one folder in dir named name ignoring case, or "".
+func matchFold(dir, name string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	found := ""
+	for _, e := range entries {
+		if e.IsDir() && strings.EqualFold(e.Name(), name) {
+			if found != "" {
+				return ""
+			}
+			found = filepath.Join(dir, e.Name())
+		}
+	}
+	return found
 }

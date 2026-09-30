@@ -4,7 +4,9 @@ package term
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -21,13 +23,27 @@ type Session struct {
 	Command  string
 }
 
-const infoFormat = "#{session_name}\t#{session_attached}\t#{pane_current_path}\t#{pane_current_command}"
+const infoFormat = "#{session_name}\t#{session_attached}\t#{pane_current_path}\t#{pane_current_command}\t#{pane_pid}"
 
 func (t Tmux) cmd(args ...string) *exec.Cmd {
 	if t.Socket != "" {
 		args = append([]string{"-L", t.Socket}, args...)
 	}
-	return exec.Command("tmux", args...)
+	c := exec.Command("tmux", args...)
+	c.Env = withoutTMUX(os.Environ())
+	return c
+}
+
+// withoutTMUX drops $TMUX, which otherwise points tmux at the server the
+// bridge was launched from instead of the configured one.
+func withoutTMUX(env []string) []string {
+	out := env[:0:0]
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, "TMUX=") {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 func (t Tmux) run(stdin string, args ...string) (string, error) {
@@ -70,10 +86,41 @@ func (t Tmux) List() ([]Session, error) {
 
 func parseSession(line string) (Session, bool) {
 	f := strings.Split(line, "\t")
-	if len(f) != 4 || f[0] == "" {
+	if len(f) != 5 || f[0] == "" {
 		return Session{}, false
 	}
-	return Session{Name: f[0], Attached: f[1] != "0", Path: f[2], Command: f[3]}, true
+	return Session{Name: f[0], Attached: f[1] != "0", Path: f[2], Command: toolName(f[4], f[3])}, true
+}
+
+// runtimes run a tool's script, so "node" says less than the script's name.
+var runtimes = map[string]bool{"node": true, "bun": true, "deno": true, "python": true, "python3": true}
+
+// toolName turns "node" into the script it runs ("claude", "codex",
+// "gemini", "teamclaude"), looking at the pane process and its children.
+func toolName(panePid, command string) string {
+	if !runtimes[command] {
+		return command
+	}
+	pids := []string{panePid}
+	if out, err := exec.Command("pgrep", "-P", panePid).Output(); err == nil {
+		pids = append(pids, strings.Fields(string(out))...)
+	}
+	for _, pid := range pids {
+		out, err := exec.Command("ps", "-o", "args=", "-p", pid).Output()
+		if err != nil {
+			continue
+		}
+		args := strings.Fields(string(out))
+		if len(args) < 2 || filepath.Base(args[0]) != command {
+			continue
+		}
+		for _, a := range args[1:] {
+			if !strings.HasPrefix(a, "-") {
+				return strings.TrimSuffix(filepath.Base(a), filepath.Ext(a))
+			}
+		}
+	}
+	return command
 }
 
 func (t Tmux) Info(name string) (Session, error) {
@@ -116,7 +163,7 @@ func (t Tmux) Paste(name, text string) error {
 
 // SendKeys sends tmux key names such as Enter, Escape, C-c, Up.
 func (t Tmux) SendKeys(name string, keys ...string) error {
-	_, err := t.run("", append([]string{"send-keys", "-t", target(name)}, keys...)...)
+	_, err := t.run("", append([]string{"send-keys", "-t", target(name), "--"}, keys...)...)
 	return err
 }
 

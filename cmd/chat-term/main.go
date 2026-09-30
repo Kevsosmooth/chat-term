@@ -68,6 +68,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	router := bot.NewRouter(cfg, term.Tmux{Socket: cfg.TmuxSocket})
+	if s, ok := transport.(chat.ImageSender); ok {
+		router.Images = s
+	}
 	defer router.Close()
 	if err := transport.Run(ctx, router.Handle); err != nil {
 		log.Fatal(err)
