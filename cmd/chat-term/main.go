@@ -29,6 +29,7 @@ Usage:
       allowed users. WhatsApp pairs on first run.
   chat-term console [-config path] [-socket name]
       Try every command locally: type messages here, replies print below.
+  chat-term version
 
 Config: %s (see config.example.toml)
 `
@@ -37,6 +38,10 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, usage, config.DefaultPath())
 		os.Exit(2)
+	}
+	if os.Args[1] == "version" || os.Args[1] == "-version" || os.Args[1] == "--version" {
+		fmt.Println("chat-term", version)
+		return
 	}
 	fs := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 	cfgPath := fs.String("config", config.DefaultPath(), "config file")
