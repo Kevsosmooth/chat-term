@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"chat-term/internal/guide"
+	"github.com/Kevsosmooth/chat-term/internal/guide"
 )
 
 // startSteps is the short answer to .help, and the top of the cheat sheet.

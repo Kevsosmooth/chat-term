@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/config"
 )
 
 const (

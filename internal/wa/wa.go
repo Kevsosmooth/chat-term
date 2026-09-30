@@ -23,8 +23,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 
-	"chat-term/internal/chat"
-	"chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/chat"
+	"github.com/Kevsosmooth/chat-term/internal/config"
 )
 
 // lateAfter drops messages delivered this long after they were sent, as happens

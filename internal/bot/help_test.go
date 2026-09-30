@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"chat-term/internal/config"
-	"chat-term/internal/term"
+	"github.com/Kevsosmooth/chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/term"
 )
 
 var update = flag.Bool("update", false, "rewrite internal/guide/cheatsheet.html")

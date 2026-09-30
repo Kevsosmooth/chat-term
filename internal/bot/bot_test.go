@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"chat-term/internal/config"
-	"chat-term/internal/term"
+	"github.com/Kevsosmooth/chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/term"
 )
 
 // harness runs a bot against a private tmux server, never the user's.

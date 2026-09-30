@@ -10,13 +10,16 @@ import (
 	"os/signal"
 	"syscall"
 
-	"chat-term/internal/bot"
-	"chat-term/internal/chat"
-	"chat-term/internal/config"
-	"chat-term/internal/console"
-	"chat-term/internal/term"
-	"chat-term/internal/wa"
+	"github.com/Kevsosmooth/chat-term/internal/bot"
+	"github.com/Kevsosmooth/chat-term/internal/chat"
+	"github.com/Kevsosmooth/chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/console"
+	"github.com/Kevsosmooth/chat-term/internal/term"
+	"github.com/Kevsosmooth/chat-term/internal/wa"
 )
+
+// version is set at release build time.
+var version = "dev"
 
 const usage = `chat-term: use tmux sessions from a chat app
 

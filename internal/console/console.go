@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"chat-term/internal/chat"
+	"github.com/Kevsosmooth/chat-term/internal/chat"
 )
 
 type Transport struct {

@@ -11,10 +11,10 @@ import (
 	"time"
 	"unicode"
 
-	"chat-term/internal/chat"
-	"chat-term/internal/config"
-	"chat-term/internal/screen"
-	"chat-term/internal/term"
+	"github.com/Kevsosmooth/chat-term/internal/chat"
+	"github.com/Kevsosmooth/chat-term/internal/config"
+	"github.com/Kevsosmooth/chat-term/internal/screen"
+	"github.com/Kevsosmooth/chat-term/internal/term"
 )
 
 // Router keeps one Bot (active session, history) per chat.

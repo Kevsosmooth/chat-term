@@ -1,4 +1,4 @@
-module chat-term
+module github.com/Kevsosmooth/chat-term
 
 go 1.26.3
 
