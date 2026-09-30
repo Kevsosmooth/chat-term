@@ -8,3 +8,4 @@ config.toml
 .data/
 docs/handoffs/
 docs/plans/
+dist/
