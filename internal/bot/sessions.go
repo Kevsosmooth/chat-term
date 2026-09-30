@@ -252,7 +252,7 @@ func (b *Bot) cmdKill(arg string) {
 		b.say("Which session? %skill <n|name>.", b.cfg.Prefix)
 		return
 	}
-	b.pendingKill, b.pendingUntil = name, time.Now().Add(60*time.Second)
+	b.pending = pending{kill: name, until: time.Now().Add(confirmWindow)}
 	note := ""
 	if strings.HasPrefix(name, "agentdeck_") {
 		note = "\nThis is an Agent Deck session; Agent Deck will show it as stopped."
@@ -260,17 +260,8 @@ func (b *Bot) cmdKill(arg string) {
 	b.say("End session %s and everything running in it? Send %syes within 60 seconds.%s", name, b.cfg.Prefix, note)
 }
 
-func (b *Bot) cmdYes(string) {
-	name := b.pendingKill
-	b.pendingKill = ""
-	if name == "" {
-		b.say("Nothing to confirm.")
-		return
-	}
-	if time.Now().After(b.pendingUntil) {
-		b.say("That request expired. Send %skill again.", b.cfg.Prefix)
-		return
-	}
+// endSession kills a session once .kill has been confirmed.
+func (b *Bot) endSession(name string) {
 	if err := b.tmux.Kill(name); err != nil {
 		b.say("Could not end %s: %v", name, err)
 		return

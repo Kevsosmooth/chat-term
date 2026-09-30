@@ -2,8 +2,9 @@
 
 How to get things done from your phone. For setup, see the
 [README](../README.md). For a one-page summary to keep on your phone, send
-`.guide` in the chat or download the [cheat sheet (PDF)](cheatsheet.pdf). New to it? Send `.help`
-for the six steps that get you going.
+`.guide pic` in the chat or download the [cheat sheet (PDF)](cheatsheet.pdf).
+New to it? Send `.help` for the six steps that get you going, or `.guide` for
+a walkthrough of starting a new project.
 
 The one rule: **a message that starts with `.` is a chat-term command;
 anything else is typed into your terminal, followed by Enter.**
@@ -28,6 +29,19 @@ screen, including the tool's status bar.
 
 Swap `claude` for `codex`, `gemini`, `opencode`, or any other command.
 `.open 3` on its own starts a plain shell there.
+
+## Start a brand-new project
+
+```
+.open my-app claude    a name that doesn't exist yet
+yes                    chat-term asked to create the folder; this confirms
+1                      Claude asks whether you trust the folder
+build a landing page for my barbershop
+```
+
+The folder is made where you are (the question shows the full path), so send
+`.projects` or `.pwd` first if you're not sure. Nothing is created until you
+answer yes, so a typo costs nothing.
 
 ## Answer a menu or permission prompt
 

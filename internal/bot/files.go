@@ -387,7 +387,9 @@ func (b *Bot) cmdOpen(arg string) {
 		// Anything else is a folder, relative to where you are, like a terminal.
 		d, err := b.resolveDir(target)
 		if err != nil {
-			b.say("%v", err)
+			if !b.offerFolder(target, cmd) {
+				b.say("%v", err)
+			}
 			return
 		}
 		dir = d

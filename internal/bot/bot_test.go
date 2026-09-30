@@ -95,7 +95,7 @@ func TestEndToEnd(t *testing.T) {
 	h.expect(".help open", ".open 3 claude", "Short form: .o")
 	h.expect(".nope", "Unknown command .nope")
 	h.expect(".opne 1", "Did you mean .open?")
-	h.expect(". open nope", "No folder \"nope\"", ".projects - list your projects")
+	h.expect(". open nope/deeper", "No folder \"deeper\"", ".projects - list your projects")
 
 	h.expect(".   projects", "1 alpha", "2 beta")
 	h.expect(".open 1", "Started alpha", "[alpha · ")

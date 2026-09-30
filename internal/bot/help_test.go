@@ -3,6 +3,7 @@ package bot
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,9 +17,12 @@ import (
 var update = flag.Bool("update", false, "rewrite internal/guide/cheatsheet.html")
 
 func TestStartHereNamesRealCommands(t *testing.T) {
-	for _, m := range regexp.MustCompile(`\.([a-z]+)`).FindAllStringSubmatch(startHere("."), -1) {
-		if lookup(m[1]) == nil && !isKeyCommand(m[1]) {
-			t.Errorf("start-here mentions .%s, which is not a command", m[1])
+	texts := map[string]string{"start-here": startHere("."), "guide": fmt.Sprintf(guideSteps, ".")}
+	for what, text := range texts {
+		for _, m := range regexp.MustCompile(`\.([a-z]+)`).FindAllStringSubmatch(text, -1) {
+			if lookup(m[1]) == nil && !isKeyCommand(m[1]) {
+				t.Errorf("%s mentions .%s, which is not a command", what, m[1])
+			}
 		}
 	}
 }
@@ -75,10 +79,16 @@ func TestWelcomeOnlyForFirstPlainMessage(t *testing.T) {
 	}
 }
 
-func TestGuideSendsPictureOrText(t *testing.T) {
+func TestGuideSendsWalkthroughOrPicture(t *testing.T) {
 	var out []string
 	b := newQuietBot(&out)
 	b.cmdGuide("")
+	if len(out) != 1 || !strings.Contains(out[0], "Start a new project") {
+		t.Fatalf(".guide did not send the walkthrough: %q", out)
+	}
+
+	out = nil
+	b.cmdGuide("pic")
 	if len(out) == 0 || !strings.Contains(out[0], "text version") {
 		t.Fatalf("no text fallback without pictures: %q", out)
 	}
@@ -86,13 +96,13 @@ func TestGuideSendsPictureOrText(t *testing.T) {
 	out = nil
 	var caption string
 	b.sendImage = func(png []byte, c string) error { caption = c; return nil }
-	b.cmdGuide("")
+	b.cmdGuide("pic")
 	if caption == "" || len(out) != 0 {
 		t.Fatalf("picture not sent alone: caption %q, text %q", caption, out)
 	}
 
 	b.sendImage = func([]byte, string) error { return errors.New("offline") }
-	b.cmdGuide("")
+	b.cmdGuide("Pic")
 	if len(out) == 0 || !strings.Contains(out[0], "offline") {
 		t.Fatalf("failed picture gave no text: %q", out)
 	}

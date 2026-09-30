@@ -146,8 +146,9 @@ a systemd user service, or start it in its own tmux window.
 ## Commands
 
 Send `.help` for a short start-here list, `.help all` for every command, or
-`.help <command>` for details. `.guide` sends a cheat sheet picture you can
-save on your phone. For step-by-step walkthroughs, see the
+`.help <command>` for details. `.guide` walks you through starting a new
+project, and `.guide pic` sends a cheat sheet picture you can save on your
+phone. For more step-by-step walkthroughs, see the
 [guide](docs/GUIDE.md); for a printable copy, the
 [cheat sheet (PDF)](docs/cheatsheet.pdf).
 
@@ -157,12 +158,13 @@ save on your phone. For step-by-step walkthroughs, see the
 | Sessions | `.ss` `.s <n\|name>` `.new [name] [dir] [cmd]` `.back` `.detach` `.kill [n\|name]` + `.yes` `.rename <name>` |
 | Keys | `.enter .esc .tab .stab .up .down .left .right .bs .space`, `.c` (Ctrl-C), `.d` (Ctrl-D), `.z` (Ctrl-Z), `.l` (Ctrl-L), each with an optional repeat count (`.down 3`), `.key <tmux keys>`, `.raw <text>` |
 | View | `.screen` `.more [lines]` |
-| Other | `.help [all\|command]` `.guide` `.status` |
+| Other | `.help [all\|command]` `.guide [pic]` `.status` |
 
 Numbers refer to the last list shown: `.ls` then `.cat 3`, `.projects` then
 `.open 2`, `.ss` then `.s 1`. `.open` with a name works like `cd`: the folder is
-relative to where you are, and if it doesn't exist you are told where you are
-and how to look around.
+relative to where you are. If it doesn't exist yet, chat-term offers to create
+it; send `.yes` (or just `yes`) within 60 seconds. If even the folder above it
+is missing, you are told where you are and how to look around.
 
 ### Forgiving input
 
@@ -215,14 +217,14 @@ internal/term/      tmux wrapper
 internal/screen/    screen cleanup, diffing, chunking
 internal/wa/        WhatsApp transport (whatsmeow)
 internal/console/   stdin/stdout transport for local testing
-internal/guide/     the cheat sheet picture .guide sends (generated; see guide.go)
+internal/guide/     the cheat sheet picture .guide pic sends (generated; see guide.go)
 ```
 
 ## Adding a transport
 
 A transport only moves text. (It may also implement the optional
-`chat.ImageSender` to send the `.guide` picture; without it, `.guide` sends
-text.) It implements one interface from
+`chat.ImageSender` to send the `.guide pic` picture; without it, the same
+content is sent as text.) It implements one interface from
 `internal/chat`:
 
 ```go

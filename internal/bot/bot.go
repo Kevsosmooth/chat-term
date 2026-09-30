@@ -73,8 +73,7 @@ type Bot struct {
 	lastSessions []string
 	lastFiles    []string
 	lastProjects []string
-	pendingKill  string
-	pendingUntil time.Time
+	pending      pending // waiting for .yes
 	stopWatch    context.CancelFunc
 	watchCtx     context.Context // done once the watcher has sent its reply
 	watching     string
@@ -109,7 +108,7 @@ func (b *Bot) Handle(text string) {
 	if b.greet(isCmd) {
 		return
 	}
-	if b.confirmsKill(text) {
+	if b.confirmsPending(text) {
 		b.cmdYes("")
 		return
 	}
@@ -142,16 +141,6 @@ func (b *Bot) Handle(text string) {
 	default:
 		b.typeLine(text)
 	}
-}
-
-// confirmsKill reports a bare "yes" while a kill waits for .yes; phones often
-// drop the dot, and typing "yes" into a shell would print y forever.
-func (b *Bot) confirmsKill(text string) bool {
-	if b.pendingKill == "" || time.Now().After(b.pendingUntil) {
-		return false
-	}
-	w := strings.ToLower(strings.Trim(text, " .!?"))
-	return w == "yes" || w == "y"
 }
 
 func startsWithLetter(s string) bool {

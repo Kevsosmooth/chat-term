@@ -69,7 +69,7 @@ func init() {
 		detail: "Lists folders under projects_root from the config file.",
 		run:    (*Bot).cmdProjects})
 	register(&command{name: "open", aliases: []string{"o"}, group: "Directories", usage: "<n|folder> [cmd]", summary: "new session in a folder",
-		detail: "Starts a session in a folder and optionally runs a tool.\nA number is from %[1]sprojects; a name is a folder where you are now, like cd.\nExamples:\n  %[1]sopen 3 claude\n  %[1]sopen my-app teamclaude run\n  %[1]sopen ~/notes",
+		detail: "Starts a session in a folder and optionally runs a tool.\nA number is from %[1]sprojects; a name is a folder where you are now, like cd.\nIf the folder doesn't exist yet, chat-term offers to create it.\nExamples:\n  %[1]sopen 3 claude\n  %[1]sopen my-app teamclaude run\n  %[1]sopen ~/notes",
 		run:    (*Bot).cmdOpen})
 
 	register(&command{name: "ss", aliases: []string{"sessions"}, group: "Sessions", summary: "list tmux sessions, numbered",
@@ -88,7 +88,7 @@ func init() {
 	register(&command{name: "kill", group: "Sessions", usage: "[n|name]", summary: "end a session (asks first)",
 		detail: "Ends the active session, or the one named. Confirm with %[1]syes within 60 seconds.",
 		run:    (*Bot).cmdKill})
-	register(&command{name: "yes", group: "Sessions", summary: "confirm a pending kill",
+	register(&command{name: "yes", group: "Sessions", summary: "confirm a kill or a new folder",
 		run: (*Bot).cmdYes})
 	register(&command{name: "rename", group: "Sessions", usage: "<new-name>", summary: "rename the active session",
 		run: (*Bot).cmdRename})
@@ -111,7 +111,7 @@ func init() {
 
 	register(&command{name: "help", aliases: []string{"h", "?"}, group: "Other", usage: "[all|command]", summary: "how to get started (add all for every command)",
 		run: (*Bot).cmdHelp})
-	register(&command{name: "guide", group: "Other", summary: "cheat sheet picture to keep on your phone",
+	register(&command{name: "guide", group: "Other", usage: "[pic]", summary: "start a new project, step by step (pic: cheat sheet)",
 		run: (*Bot).cmdGuide})
 	register(&command{name: "status", group: "Other", summary: "bridge uptime, memory, active session",
 		run: (*Bot).cmdStatus})

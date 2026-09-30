@@ -3,8 +3,6 @@ package bot
 import (
 	"fmt"
 	"strings"
-
-	"github.com/Kevsosmooth/chat-term/internal/guide"
 )
 
 // startSteps is the short answer to .help, and the top of the cheat sheet.
@@ -25,7 +23,7 @@ func startHere(p string) string {
 	for i, s := range startSteps {
 		fmt.Fprintf(&sb, "%d. %s\n", i+1, strings.ReplaceAll(s, "%[1]s", p))
 	}
-	fmt.Fprintf(&sb, "\n%[1]shelp all - every command\n%[1]shelp open - details for one command\n%[1]sguide - a cheat sheet picture to keep", p)
+	fmt.Fprintf(&sb, "\n%[1]shelp all - every command\n%[1]shelp open - details for one command\n%[1]sguide - start a new project, step by step\n%[1]sguide pic - a cheat sheet picture to keep", p)
 	return sb.String()
 }
 
@@ -111,20 +109,4 @@ func isKeyCommand(name string) bool {
 		}
 	}
 	return false
-}
-
-// cmdGuide sends the cheat sheet picture, or the full list where pictures
-// can't be sent.
-func (b *Bot) cmdGuide(string) {
-	full := fullHelp(b.cfg.Prefix)
-	if b.sendImage == nil {
-		b.send("This chat can't show pictures, so here is the text version.\n\n" + full)
-		return
-	}
-	b.sendMu.Lock()
-	err := b.sendImage(guide.PNG, "chat-term cheat sheet. Save or pin it to keep it handy.")
-	b.sendMu.Unlock()
-	if err != nil {
-		b.send(fmt.Sprintf("Couldn't send the picture (%v), so here is the text version.\n\n", err) + full)
-	}
 }
